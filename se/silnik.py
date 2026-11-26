@@ -96,6 +96,33 @@ def wnioskuj_wstecz(baza, cel, fakty, zapytaj, slad=None, powod=None):
     fakty[cel] = None
     return None
 
+def opisz_regule(regula):
+    warunki = " ORAZ ".join(f"{a} {op} {w!r}" for a, op, w in regula["jesli"])
+    atrybut, wartosc = regula["to"]
+    return f"{regula['id']}: JEŚLI {warunki} TO {atrybut} = {wartosc!r}"
+
+
+def wyjasnij_jak(baza, slad):
+    po_id = {r["id"]: r for r in baza["reguly"]}
+    kroki = []
+    for nr, id_reguly in enumerate(slad, start=1):
+        regula = po_id[id_reguly]
+        krok = f"{nr}. {opisz_regule(regula)}"
+        if regula.get("metafora"):
+            krok += f" → {regula['metafora']}"
+        kroki.append(krok)
+    return kroki
+
+
+def coto(baza, slad):
+    po_id = {r["id"]: r for r in baza["reguly"]}
+    for id_reguly in reversed(slad):
+        opis = po_id[id_reguly].get("coto")
+        if opis:
+            return opis
+    return None
+
+
 
 def zapytaj_konsola(baza):
     """Pytanie w konsoli. Sprawdza odpowiedź, bo literówka („Tak”, „popoludnie”) dałaby ciche None."""
@@ -104,6 +131,13 @@ def zapytaj_konsola(baza):
         podpowiedz = f" ({'/'.join(opis['wartosci'])})" if "wartosci" in opis else ""
         while True:
             odp = input(f"{opis.get('pytanie', atrybut)}{podpowiedz} ").strip()
+
+            if odp == "?":                                  # „dlaczego pytasz?”
+                if powod is not None:
+                    print("   " + opisz_regule(powod))
+                continue
+
+
             if opis.get("typ") == "liczba":
                 try:
                     return float(odp.replace(",", "."))
@@ -135,3 +169,10 @@ if __name__ == "__main__":
     slad = []
     print("Polecam:", wnioskuj_wstecz(baza, cel, {}, zapytaj_konsola(baza), slad))
     print("Reguły:", " -> ".join(slad))
+
+
+    print("\n=== Wyjaśnienie: jak? ===")
+    for krok in wyjasnij_jak(baza, slad):
+        print(krok)
+    print("\n=== Co to jest? ===")
+    print(coto(baza, slad))
